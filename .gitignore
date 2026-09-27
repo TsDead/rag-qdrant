@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+qdrant_data/
+fastembed_cache/
+*.log
+_*.py
+_edgeprof/
+_shot.png

@@ -1,0 +1,11 @@
+Nimbus Analytics — Company Overview
+
+Nimbus Analytics is a software company founded in 2019 in Lisbon, Portugal. As of 2024 it has 45 employees and operates on a four-day work week.
+
+Its flagship product, PulseGrid, provides real-time data dashboards for small and mid-sized businesses. PulseGrid connects to Postgres, MySQL, and BigQuery data sources. It offers a free 14-day trial with no credit card required.
+
+Pricing has two paid tiers: the Starter plan costs 29 dollars per month, and the Pro plan costs 99 dollars per month. Annual billing gives a 20 percent discount.
+
+The company is led by CEO Marta Alves. In 2022 Nimbus Analytics raised a 6 million dollar Series A round from Fjord Ventures. The product became SOC 2 Type II certified in 2023.
+
+Support is available by email and live chat on weekdays from 9:00 to 18:00 Lisbon time. Enterprise customers get a dedicated account manager and a 99.9 percent uptime guarantee.

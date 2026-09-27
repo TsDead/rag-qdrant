@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG · Qdrant · NOVACODE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F5F7; --panel:#FFFFFF; --panel-2:#FBFBFD; --line:#E3E3E8; --line-2:#D2D2D7;
+    --ink:#1D1D1F; --ink-soft:#6E6E73; --faint:#86868B;
+    --acc:#DC244C; --acc-hi:#E5484D; --acc-deep:#B01838; --on-acc:#fff;
+    --grad-a:#DC244C; --grad-b:#F0607E; --grad-c:#9B1B5A; --ok:#34C759; --bad:#FF3B30;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Menlo",monospace;
+    --spring:cubic-bezier(.34,1.56,.64,1); --ease:cubic-bezier(.22,1,.36,1);
+    --pad:clamp(20px,5vw,48px); --max:900px;
+    --shadow-win:0 24px 60px -18px rgba(0,0,0,.16),0 6px 16px rgba(0,0,0,.05);
+    --shadow-sm:0 2px 8px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#000;--panel:#1C1C1E;--panel-2:#262629;--line:#38383C;--line-2:#48484C;
+      --ink:#F5F5F7;--ink-soft:#AEAEB2;--faint:#8E8E93;--acc:#FF4D6D;--acc-hi:#FF6B85;--acc-deep:#DC244C;
+      --grad-a:#FF4D6D;--grad-b:#FF8FA3;--grad-c:#C41E4E;--ok:#30D158;
+      --shadow-win:0 30px 70px -20px rgba(0,0,0,.7);--shadow-sm:0 2px 10px rgba(0,0,0,.4);}
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--font);
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.022em}
+  ::selection{background:var(--acc);color:#fff}
+  :focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:8px}
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 var(--pad) 80px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:40;
+    margin:0 calc(-1*var(--pad));padding:0 var(--pad);background:color-mix(in srgb,var(--bg) 72%,transparent);
+    backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px)}
+  .brand{font-weight:600;font-size:16px;display:flex;align-items:center;gap:9px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);animation:breathe 3s var(--ease) infinite}
+  @keyframes breathe{50%{transform:scale(1.35);opacity:.6}}
+  .seg{position:relative;display:flex;background:color-mix(in srgb,var(--ink) 8%,transparent);border-radius:9px;padding:3px}
+  .seg button{position:relative;z-index:1;font:600 13px/1 var(--font);color:var(--ink-soft);background:none;border:0;padding:7px 13px;border-radius:7px;cursor:pointer;transition:color .25s}
+  .seg button[aria-pressed="true"]{color:var(--ink)}
+  .seg .thumb{position:absolute;z-index:0;top:3px;bottom:3px;width:calc(50% - 3px);border-radius:7px;background:var(--panel);box-shadow:var(--shadow-sm);transition:transform .38s var(--spring)}
+  .seg[data-on="en"] .thumb{transform:translateX(100%)}
+
+  [data-enter]{opacity:0;transform:translateY(16px)}
+  body.ready [data-enter]{opacity:1;transform:none;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  body.ready [data-enter="2"]{transition-delay:.08s} body.ready [data-enter="3"]{transition-delay:.16s} body.ready [data-enter="4"]{transition-delay:.24s}
+
+  .hero{padding:clamp(40px,7vw,82px) 0 clamp(20px,3vw,34px)}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--acc);
+    background:color-mix(in srgb,var(--acc) 10%,transparent);padding:6px 12px;border-radius:999px}
+  .eyebrow .p{width:7px;height:7px;border-radius:50%;background:var(--acc)}
+  h1.title{font-size:clamp(32px,5vw,54px);line-height:1.05;letter-spacing:-.03em;font-weight:700;margin:20px 0 0;max-width:18ch}
+  .title .grad{background:linear-gradient(115deg,var(--grad-a),var(--grad-b) 55%,var(--grad-c));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{margin:18px 0 0;max-width:54ch;font-size:clamp(16px,1.7vw,19px);color:var(--ink-soft)}
+
+  /* vector-db status strip */
+  .vdb{display:flex;gap:1px;margin-top:26px;background:var(--line);border:1px solid var(--line);border-radius:13px;overflow:hidden;flex-wrap:wrap}
+  .vdb .cell{flex:1;min-width:130px;background:var(--panel);padding:13px 16px}
+  .vdb .k{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .vdb .v{font-family:var(--mono);font-size:14px;color:var(--ink);margin-top:4px;font-variant-numeric:tabular-nums}
+  .vdb .v.live{color:var(--acc)}
+
+  .win{margin-top:clamp(26px,4vw,40px);background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-win)}
+  .win__bar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);background:linear-gradient(color-mix(in srgb,var(--panel) 60%,var(--bg)),var(--panel))}
+  .tl{display:flex;gap:8px}.tl i{width:12px;height:12px;border-radius:50%}
+  .tl i:nth-child(1){background:#FF5F57}.tl i:nth-child(2){background:#FEBC2E}.tl i:nth-child(3){background:#28C840}
+  .win__ttl{margin:0 auto;transform:translateX(-24px);font-size:13px;color:var(--faint)}
+  .win__body{padding:20px}
+  .label{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--faint);margin:0 0 9px;display:block;text-transform:uppercase}
+  textarea,input,select{width:100%;background:var(--panel-2);border:1px solid var(--line-2);border-radius:12px;color:var(--ink);
+    padding:13px 14px;font:400 15px/1.5 var(--font);resize:vertical;transition:border-color .2s,box-shadow .2s,background-color .2s}
+  textarea{min-height:120px}
+  textarea::placeholder,input::placeholder{color:var(--faint)}
+  textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc);background:var(--panel);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 16%,transparent)}
+  select{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23DC244C' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
+  .row{display:flex;gap:11px;margin-top:13px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:9px;font:600 15px/1 var(--font);background:var(--acc);color:var(--on-acc);
+    border:0;border-radius:980px;padding:12px 22px;cursor:pointer;box-shadow:0 6px 18px -6px color-mix(in srgb,var(--acc) 70%,transparent);
+    transition:transform .16s var(--spring),background-color .16s}
+  .btn:hover{background:var(--acc-hi);transform:scale(1.035)} .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.5;cursor:default;box-shadow:none;transform:none}
+  .btn--ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line-2);box-shadow:var(--shadow-sm)}
+  .btn--ghost:hover{background:var(--panel-2);transform:scale(1.035)}
+  .filebtn{display:inline-flex;align-items:center;font:600 15px/1 var(--font);border:1px solid var(--line-2);border-radius:980px;padding:12px 22px;color:var(--ink);background:var(--panel);cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .16s var(--spring)}
+  .filebtn:hover{transform:scale(1.035)}
+  .status{font-size:13.5px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:9px}
+  .think{display:inline-flex;gap:4px}.think i{width:6px;height:6px;border-radius:50%;background:var(--acc);animation:bob 1s var(--ease) infinite}
+  .think i:nth-child(2){animation-delay:.15s}.think i:nth-child(3){animation-delay:.3s}
+  @keyframes bob{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+
+  section.blk{margin-top:clamp(30px,4vw,44px)}
+  .head h2{font-size:clamp(18px,2.4vw,24px);font-weight:700;letter-spacing:-.02em;margin-bottom:3px}
+  .head p{color:var(--ink-soft);font-size:14px;margin-bottom:16px}
+  .qbar{display:flex;gap:11px;align-items:flex-end;flex-wrap:wrap}
+  .qbar .qf{flex:1;min-width:220px}
+  .kbox{width:110px}
+  .answer{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:14px;padding:18px 20px;margin-top:14px;display:none;box-shadow:var(--shadow-sm)}
+  .answer.show{display:block}
+  .answer .cap{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);margin-bottom:10px;display:block}
+  .answer .txt{white-space:pre-wrap;font-size:15.5px;line-height:1.65}
+  .sources{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .sources .cap{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:11px;display:block}
+  .src{margin-bottom:11px}
+  .src .top{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-soft);margin-bottom:5px}
+  .src .tag{font-family:var(--mono);font-size:11.5px;color:var(--acc);border:1px solid var(--line-2);border-radius:6px;padding:1px 7px}
+  .src .barwrap{flex:1;height:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;overflow:hidden;max-width:180px}
+  .src .bar{height:100%;background:linear-gradient(90deg,var(--acc),var(--grad-b));width:0;transition:width .8s var(--spring)}
+  .src .sc{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .src .txt{font-size:13px;color:var(--ink-soft);line-height:1.5}
+  .err{color:var(--bad);margin-top:14px;font-size:14px;min-height:1em}
+  footer{margin-top:clamp(52px,7vw,86px);padding-top:24px;border-top:1px solid var(--line);color:var(--faint);
+    font-size:13px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  footer a{color:var(--ink-soft);text-decoration:none} footer a:hover{color:var(--acc)}
+  @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}[data-enter]{opacity:1!important;transform:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>NOVACODE</div>
+    <div class="seg" id="seg" data-on="ru"><span class="thumb"></span>
+      <button id="ruBtn" aria-pressed="true">RU</button><button id="enBtn" aria-pressed="false">EN</button></div>
+  </div>
+
+  <header class="hero">
+    <span class="eyebrow" data-enter="1"><span class="p"></span>RAG · Vector database</span>
+    <h1 class="title" id="title" data-enter="2"></h1>
+    <p class="lede" data-enter="3" data-i18n="lede"></p>
+    <div class="vdb" id="vdb" data-enter="4"></div>
+  </header>
+
+  <div class="win" data-enter="4">
+    <div class="win__bar"><span class="tl"><i></i><i></i><i></i></span><span class="win__ttl">rag — qdrant</span></div>
+    <div class="win__body">
+      <span class="label" data-i18n="docLabel">Документ</span>
+      <textarea id="doc" data-i18n-ph="docPh"></textarea>
+      <div class="row">
+        <button class="btn" id="index" data-i18n="indexBtn">Проиндексировать в Qdrant</button>
+        <button class="btn--ghost btn" id="sample" data-i18n="sampleBtn">Пример</button>
+        <label class="filebtn"><span data-i18n="fileBtn">Файл .txt / .pdf</span><input type="file" id="file" accept=".txt,.pdf" style="display:none"></label>
+        <span class="status" id="idxStatus"></span>
+      </div>
+    </div>
+  </div>
+
+  <section class="blk">
+    <div class="head"><h2 data-i18n="qTitle">Вопрос</h2><p data-i18n="qDesc">Ответ строится только по загруженному тексту, с цитатами</p></div>
+    <div class="qbar">
+      <div class="qf"><input id="q" data-i18n-ph="qPh"></div>
+      <div class="kbox"><span class="label" data-i18n="kLabel">Фрагментов</span>
+        <select id="k"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div>
+      <button class="btn" id="ask" data-i18n="askBtn">Спросить</button>
+    </div>
+    <span class="status" id="askStatus"></span>
+    <div class="answer" id="ansBox"><span class="cap" data-i18n="ansCap">Ответ</span><div class="txt" id="answer"></div><div class="sources" id="sources"></div></div>
+  </section>
+
+  <div class="err" id="err"></div>
+  <footer>
+    <span>© 2026 NOVACODE</span>
+    <span>Python · FastAPI · Qdrant · embeddings · LLM (Groq) &nbsp;·&nbsp;
+      <a href="https://github.com/TsDead/rag-qdrant" target="_blank" rel="noopener">GitHub</a> ·
+      <a href="https://new-coder.ru" target="_blank" rel="noopener">new-coder.ru</a></span>
+  </footer>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const err = m => $('err').textContent = m || '';
+  async function post(u,b){ return (await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json(); }
+  const I18N = {
+    ru:{ titleHTML:'Поиск по смыслу в <span class="grad">Qdrant</span>',
+      lede:"Документ режется на чанки, эмбеддинги хранятся в векторной БД Qdrant. Вопрос → поиск ближайших векторов через HNSW-индекс → ответ LLM строго по найденным фрагментам, с цитатами.",
+      docLabel:"Документ", docPh:"Вставьте текст документа…", indexBtn:"Проиндексировать в Qdrant", sampleBtn:"Пример", fileBtn:"Файл .txt / .pdf",
+      qTitle:"Вопрос", qDesc:"Ответ строится только по загруженному тексту, с цитатами", qPh:"Например: How much does the Pro plan cost?",
+      kLabel:"Фрагментов", askBtn:"Спросить", ansCap:"Ответ", srcCap:"Источники (по близости в Qdrant)",
+      kMode:"Режим", kColl:"Коллекция", kPoints:"Точек (векторов)", kIndex:"Индекс",
+      indexing:"эмбеддинги → Qdrant…", indexed:"в Qdrant · чанков ", reading:"читаю файл…", thinking:"поиск + ответ…",
+      needDoc:"Вставьте документ.", needQ:"Введите вопрос." },
+    en:{ titleHTML:'Semantic search in <span class="grad">Qdrant</span>',
+      lede:"The document is chunked and its embeddings are stored in the Qdrant vector database. A question → nearest-vector search via the HNSW index → an LLM answer strictly from the retrieved passages, with citations.",
+      docLabel:"Document", docPh:"Paste the document text…", indexBtn:"Index into Qdrant", sampleBtn:"Sample", fileBtn:"File .txt / .pdf",
+      qTitle:"Question", qDesc:"Answer is built only from the uploaded text, with citations", qPh:"e.g. How much does the Pro plan cost?",
+      kLabel:"Passages", askBtn:"Ask", ansCap:"Answer", srcCap:"Sources (by similarity in Qdrant)",
+      kMode:"Mode", kColl:"Collection", kPoints:"Points (vectors)", kIndex:"Index",
+      indexing:"embeddings → Qdrant…", indexed:"in Qdrant · chunks ", reading:"reading file…", thinking:"search + answer…",
+      needDoc:"Paste a document.", needQ:"Enter a question." }
+  };
+  let lang = localStorage.getItem('ui_lang')||'ru', STORE=null;
+  function applyLang(l){
+    lang=l; localStorage.setItem('ui_lang',l); const t=I18N[l];
+    $('title').innerHTML=t.titleHTML;
+    document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.dataset.i18n;if(t[k]!=null)e.textContent=t[k];});
+    document.querySelectorAll('[data-i18n-ph]').forEach(e=>{const k=e.dataset.i18nPh;if(t[k]!=null)e.placeholder=t[k];});
+    $('seg').dataset.on=l; $('ruBtn').setAttribute('aria-pressed',l==='ru'); $('enBtn').setAttribute('aria-pressed',l==='en');
+    if(STORE) renderVdb(STORE);
+  }
+  $('ruBtn').onclick=()=>applyLang('ru'); $('enBtn').onclick=()=>applyLang('en');
+
+  function renderVdb(s){
+    STORE=s; const t=I18N[lang];
+    $('vdb').innerHTML=
+      `<div class="cell"><div class="k">${t.kMode}</div><div class="v live">${esc(s.mode)}</div></div>
+       <div class="cell"><div class="k">${t.kColl}</div><div class="v">${esc(s.collection)}</div></div>
+       <div class="cell"><div class="k">${t.kPoints}</div><div class="v">${s.points}</div></div>
+       <div class="cell"><div class="k">${t.kIndex}</div><div class="v">${esc(s.index)}</div></div>`;
+  }
+  async function refresh(){ try{ renderVdb(await (await fetch('/api/stats')).json()); }catch(e){} }
+
+  $('sample').onclick=async()=>{ const d=await (await fetch('/api/sample')).json(); $('doc').value=d.text; };
+  $('index').onclick=async()=>{
+    const t=I18N[lang]; err(''); if(!$('doc').value.trim()){ err(t.needDoc); return; }
+    $('index').disabled=true; $('idxStatus').innerHTML=`<span class="think"><i></i><i></i><i></i></span>${t.indexing}`;
+    const r=await post('/api/ingest',{text:$('doc').value});
+    $('index').disabled=false;
+    if(r.error){ err(r.error); $('idxStatus').textContent=''; } else { $('idxStatus').textContent=t.indexed+r.chunks; renderVdb(r.store); }
+  };
+  $('file').onchange=async(e)=>{
+    const t=I18N[lang], f=e.target.files[0]; if(!f) return;
+    $('idxStatus').innerHTML=`<span class="think"><i></i><i></i><i></i></span>${t.reading}`;
+    const fd=new FormData(); fd.append('file',f);
+    const r=await (await fetch('/api/upload',{method:'POST',body:fd})).json();
+    if(r.error){ err(r.error); $('idxStatus').textContent=''; } else { $('idxStatus').textContent=`${f.name} · ${r.chunks}`; renderVdb(r.store); }
+  };
+  $('ask').onclick=async()=>{
+    const t=I18N[lang]; err(''); if(!$('q').value.trim()){ err(t.needQ); return; }
+    $('ask').disabled=true; $('askStatus').innerHTML=`<span class="think"><i></i><i></i><i></i></span>${t.thinking}`;
+    const r=await post('/api/ask',{question:$('q').value,k:parseInt($('k').value,10)});
+    $('ask').disabled=false; $('askStatus').textContent='';
+    if(r.error){ err(r.error); return; }
+    $('answer').textContent=r.answer;
+    $('sources').innerHTML=`<span class="cap">${t.srcCap}</span>`+r.sources.map(s=>{
+      const pct=Math.max(4,Math.round(s.score*100));
+      return `<div class="src"><div class="top"><span class="tag">[${s.n}]</span>
+        <span class="barwrap"><span class="bar" data-w="${pct}"></span></span><span class="sc">${s.score.toFixed(3)}</span></div>
+        <div class="txt">${esc(s.text)}…</div></div>`;}).join('');
+    $('ansBox').classList.add('show');
+    requestAnimationFrame(()=>$('sources').querySelectorAll('.bar').forEach(b=>b.style.width=b.dataset.w+'%'));
+    refresh();
+  };
+
+  applyLang(lang); refresh();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('ready')));
+</script>
+</body>
+</html>
